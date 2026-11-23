@@ -83,6 +83,7 @@ class RAGService:
 
     def __init__(self, store: Chroma, llm: BaseChatModel, settings: Settings):
         self.settings = settings
+        self.store = store
         self.model_name = getattr(llm, "model_name", None) or settings.llm_model
         self.chain = build_rag_chain(store, llm, settings)
 

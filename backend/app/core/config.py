@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     chunk_overlap: int = Field(default=150, ge=0)
     min_chunk_chars: int = Field(default=80, ge=0)  # drop tiny fragments (page numbers, headers)
 
+    # --- Evaluation ---
+    eval_dir: Path = PROJECT_ROOT / "eval"
+
     # --- Retrieval & confidence ---
     retrieval_top_k: int = Field(default=5, ge=1, le=20)
     min_similarity: float = Field(default=0.35, ge=0.0, le=1.0)

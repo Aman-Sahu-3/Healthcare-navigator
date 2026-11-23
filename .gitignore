@@ -27,3 +27,6 @@ frontend/dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Evaluation run outputs (reports are worth committing; raw JSON is large)
+eval/results/*.json

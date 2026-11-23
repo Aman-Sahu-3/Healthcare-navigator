@@ -26,7 +26,8 @@ React UI ─► FastAPI /query ─► LCEL RAG chain (top-k cosine retrieval ─
 | `backend/tests` | pytest suite |
 | `frontend/` | React app *(Phase 5)* |
 | `data/raw/` | Source PDFs (git-ignored) |
-| `eval/` | Golden Q&A set and evaluation scripts *(Phase 3)* |
+| `eval/` | Golden Q&A set (`golden.jsonl`) and evaluation reports |
+| `backend/app/eval` | Evaluation harness: question generation, metrics, LLM judge, reports |
 
 ## Quick start
 
@@ -86,12 +87,35 @@ built from vector-store metadata rather than model output.
 | MEDIUM | best cited similarity ≥ 0.60 |
 | LOW | otherwise, or no valid citations, or model reported insufficient evidence |
 
+## Evaluation (Phase 3)
+
+```bash
+python -m app.eval generate --n 30     # draft questions from your PDFs -> eval/golden_draft.jsonl
+# review & edit, save as eval/golden.jsonl
+python -m app.eval run                 # -> eval/results/report-<time>.md
+```
+
+| Metric | What it measures |
+|---|---|
+| Source hit@k / hit@1, MRR | Does retrieval surface the document that holds the answer? |
+| Page hit@k | …and the right page? |
+| Answered when answerable / Refused when unanswerable | Does the assistant answer real questions and refuse out-of-scope ones? |
+| Citation accuracy | Does the answer cite the expected document? |
+| Faithfulness (LLM judge) | Is every claim supported by the retrieved passages? |
+| Correctness (LLM judge) | Does the answer match the reference answer? |
+| Confidence calibration | Is HIGH actually more correct than MEDIUM and LOW? |
+
+The run also suggests `MIN_SIMILARITY` and confidence thresholds from the observed similarity
+distributions of answerable vs. unanswerable questions.
+
+<!-- Paste the headline table from your latest eval/results/report-*.md here. -->
+
 ## Roadmap
 
 - [x] Phase 0 — Foundations (repo, config, logging, CI)
 - [x] Phase 1 — Ingestion pipeline
 - [x] Phase 2 — RAG chain + confidence scoring
-- [ ] Phase 3 — Evaluation
+- [x] Phase 3 — Evaluation
 - [ ] Phase 4 — REST API
 - [ ] Phase 5 — React frontend
 - [ ] Phase 6 — Docker
