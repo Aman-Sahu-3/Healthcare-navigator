@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     )
 
     # --- LLM (model is configurable; GPT-3.5-Turbo is legacy) ---
+    # Any OpenAI-compatible provider works: leave LLM_BASE_URL empty for OpenAI, or set e.g.
+    # https://api.groq.com/openai/v1 (Groq, free tier) and put that provider's key below.
     openai_api_key: SecretStr | None = None
+    llm_base_url: str | None = None
     llm_model: str = "gpt-4o-mini"
     llm_temperature: float = Field(default=0.0, ge=0.0, le=1.0)
     llm_max_tokens: int = Field(default=700, gt=0)
