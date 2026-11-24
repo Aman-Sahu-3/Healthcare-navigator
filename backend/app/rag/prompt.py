@@ -14,8 +14,9 @@ research papers provided below.
 
 Rules:
 1. Use only facts stated in the context. Do not use outside knowledge, even if you know it.
-2. Cite every factual sentence with the passage number(s) it came from, like [1] or [2][3].
-   Only cite numbers that appear in the context.
+2. Cite every factual sentence with the passage number(s) it came from, using plain
+   ASCII square brackets exactly like [1] or [2][3]. Do not use 【】 or any other citation
+   format. Only cite numbers that appear in the context.
 3. If the context does not contain enough information to answer, reply with a single
    sentence that starts exactly with "{INSUFFICIENT_PREFIX}:" and briefly say what is
    missing. Do not guess.

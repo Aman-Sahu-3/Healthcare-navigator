@@ -106,6 +106,7 @@ def ingest_path(
     settings: Settings,
     embeddings: Embeddings | None = None,
     force: bool = False,
+    store: Chroma | None = None,
 ) -> IngestReport:
     start = time.perf_counter()
     report = IngestReport()
@@ -114,7 +115,8 @@ def ingest_path(
         logger.warning("No PDFs found under %s", path)
         return report
 
-    store = build_store(settings, embeddings)
+    if store is None:
+        store = build_store(settings, embeddings)
     for n, pdf in enumerate(pdfs, 1):
         result = ingest_file(pdf, store, settings, force=force)
         report.files.append(result)

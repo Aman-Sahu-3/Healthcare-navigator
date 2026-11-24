@@ -63,8 +63,10 @@ class Settings(BaseSettings):
     medium_conf_threshold: float = Field(default=0.60, ge=0.0, le=1.0)
 
     # --- Security ---
-    admin_api_key: SecretStr | None = None
-    rate_limit: str = "20/minute"
+    admin_api_key: SecretStr | None = None  # required for /ingest endpoints
+    rate_limit: str = Field(default="20/minute", pattern=r"^\d+/(second|minute|hour|day)$")
+    trust_proxy_headers: bool = False  # use X-Forwarded-For for client IP (behind a proxy)
+    max_upload_mb: int = Field(default=25, ge=1, le=200)
 
     @field_validator("cors_origins", mode="before")
     @classmethod

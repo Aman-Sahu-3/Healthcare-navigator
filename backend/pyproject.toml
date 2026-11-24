@@ -18,6 +18,8 @@ dependencies = [
     "chromadb>=0.5",
     # Phase 2 — RAG chain
     "langchain-openai>=0.2",
+    # Phase 4 — REST API (file uploads)
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

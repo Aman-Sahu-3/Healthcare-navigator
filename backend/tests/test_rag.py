@@ -51,6 +51,12 @@ def test_extract_maps_markers_in_order_of_mention():
         ("A [9].", [], "A."),  # out-of-range marker removed
         ("A [1, 9].", [1], "A [1]."),
         ("Year [2024] study.", [], "Year study."),
+        # OpenAI-style / full-width brackets (gpt-oss on Groq emits these)
+        ("Monotherapy is first-line【1】.", [1], "Monotherapy is first-line[1]."),
+        ("A 【2†L10-L15】 and B 【1†source】.", [2, 1], "A [2] and B [1]."),
+        ("A ［3］.", [3], "A [3]."),
+        ("A 【1, 2】.", [1, 2], "A [1][2]."),
+        ("A 【9】.", [], "A."),
     ],
 )
 def test_marker_formats(raw, ids, cleaned):

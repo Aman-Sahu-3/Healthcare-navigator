@@ -15,6 +15,10 @@ from app.schemas.rag import Citation
 
 # Matches [1], [2, 3], [1-3], [1–3]
 _MARKER = re.compile(r"\[(\d+(?:\s*(?:,|-|–)\s*\d+)*)\]")
+
+# Other bracket styles models use, normalised to [...] before parsing:
+#   【1】 and 【1†L3-L8】 (OpenAI-style, common with gpt-oss), ［1］ (full-width), 〔1〕
+_ALT_MARKER = re.compile(r"[【［〔]\s*(\d+(?:\s*(?:,|-|–)\s*\d+)*)\s*(?:†[^】］〕]*)?[】］〕]")
 _SNIPPET_CHARS = 280
 
 
@@ -42,14 +46,16 @@ def extract_citations(answer: str, chunks: list[RetrievedChunk]) -> tuple[str, l
                 order.append(i)
         return "".join(f"[{i}]" for i in dict.fromkeys(valid))
 
-    cleaned = _MARKER.sub(_replace, answer)
+    normalised = _ALT_MARKER.sub(lambda m: f"[{m.group(1)}]", answer)
+    cleaned = _MARKER.sub(_replace, normalised)
     cleaned = re.sub(r"[ \t]+([.,;:])", r"\1", cleaned)  # tidy spaces left by removed markers
     cleaned = re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
     citations = []
     for i in order:
         c = chunks[i - 1]
-        snippet = c.text if len(c.text) <= _SNIPPET_CHARS else c.text[:_SNIPPET_CHARS] + "..."
+        flat = " ".join(c.text.split())  # PDF line breaks -> single spaces for display
+        snippet = flat if len(flat) <= _SNIPPET_CHARS else flat[:_SNIPPET_CHARS] + "..."
         citations.append(
             Citation(
                 id=i,

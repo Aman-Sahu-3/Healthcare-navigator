@@ -9,15 +9,23 @@ def _isolated_env(monkeypatch):
     """Tests never read the developer's real .env or API keys."""
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     monkeypatch.setenv("ENVIRONMENT", "test")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    for var in ("OPENAI_API_KEY", "LLM_BASE_URL", "ADMIN_API_KEY", "HF_HUB_OFFLINE"):
+        monkeypatch.delenv(var, raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
 
 
 @pytest.fixture
-def client():
+def client(tmp_path):
+    """App with an empty fake-embedding store and no LLM (never loads real models)."""
+    from app.api.deps import Services
+    from app.ingestion.vectorstore import get_vectorstore
     from app.main import create_app
 
-    with TestClient(create_app()) as c:
+    from .ingestion_helpers import HashingEmbeddings
+
+    store = get_vectorstore(HashingEmbeddings(), tmp_path / "chroma", "test")
+    services = Services(store=store, rag=None, llm_error="OPENAI_API_KEY is not set")
+    with TestClient(create_app(services)) as c:
         yield c

@@ -21,8 +21,8 @@ React UI ─► FastAPI /query ─► LCEL RAG chain (top-k cosine retrieval ─
 | `backend/app/core` | Settings (env-driven) and logging |
 | `backend/app/ingestion` | PDF parsing, chunking, embedding, vector storage, retrieval CLI |
 | `backend/app/rag` | LCEL chain, grounded prompt, citation mapping, confidence scoring |
-| `backend/app/api` | FastAPI routers |
-| `backend/app/schemas` | Pydantic request/response models *(Phase 4)* |
+| `backend/app/api` | FastAPI routes, errors, rate limiting, request IDs |
+| `backend/app/schemas` | Pydantic request/response models |
 | `backend/tests` | pytest suite |
 | `frontend/` | React app *(Phase 5)* |
 | `data/raw/` | Source PDFs (git-ignored) |
@@ -110,13 +110,50 @@ distributions of answerable vs. unanswerable questions.
 
 <!-- Paste the headline table from your latest eval/results/report-*.md here. -->
 
+## REST API (Phase 4)
+
+```bash
+cd backend
+uvicorn app.main:app --reload --reload-dir app --port 8000   # docs: http://localhost:8000/docs
+```
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/query` | – (rate limited) | `{question, top_k?}` → answer, citations, confidence |
+| GET | `/sources` | – | Indexed documents with page and chunk counts |
+| GET | `/health` | – | Status (`ok` / `degraded`), LLM + index readiness |
+| POST | `/ingest` | `X-API-Key` | Re-scan `data/raw` (`{"force": true}` to re-embed) |
+| POST | `/ingest/upload` | `X-API-Key` | Upload and ingest one PDF |
+
+Example:
+
+```bash
+curl -X POST localhost:8000/query -H "Content-Type: application/json" \
+  -d '{"question": "What is the first-line treatment for hypertension?"}'
+```
+
+```json
+{
+  "answer": "Thiazide diuretics, ACE inhibitors, ARBs or CCBs are first-line [1].",
+  "citations": [{"id": 1, "source": "who_htn.pdf", "title": "...", "page": 12,
+                 "snippet": "...", "similarity": 0.82}],
+  "confidence": {"level": "HIGH", "score": 0.87, "reasons": ["..."]},
+  "insufficient_evidence": false,
+  "latency_ms": 1140
+}
+```
+
+Every error has the same shape — `{"error": {"code", "message", "details?"}, "request_id"}` —
+with LLM provider failures mapped to clear codes (`llm_rate_limited` 503, `llm_auth_error` 502,
+`llm_timeout` 504). Models load once at startup; question text is never logged.
+
 ## Roadmap
 
 - [x] Phase 0 — Foundations (repo, config, logging, CI)
 - [x] Phase 1 — Ingestion pipeline
 - [x] Phase 2 — RAG chain + confidence scoring
 - [x] Phase 3 — Evaluation
-- [ ] Phase 4 — REST API
+- [x] Phase 4 — REST API
 - [ ] Phase 5 — React frontend
 - [ ] Phase 6 — Docker
 - [ ] Phase 7 — Deployment + CI/CD
