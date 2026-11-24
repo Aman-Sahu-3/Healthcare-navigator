@@ -329,3 +329,66 @@ def test_startup_builds_services(tmp_path, monkeypatch):
     with TestClient(create_app()) as c:
         assert c.app.state.services.rag is not None
         assert c.get("/health").json()["llm_configured"] is True
+
+
+def test_auto_ingest_on_startup(tmp_path, monkeypatch):
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    make_pdf(raw / "htn.pdf", [HTN])
+    monkeypatch.setenv("CHROMA_DIR", str(tmp_path / "chroma"))
+    monkeypatch.setenv("RAW_DOCS_DIR", str(raw))
+    monkeypatch.setenv("AUTO_INGEST_ON_STARTUP", "true")
+    monkeypatch.setattr(
+        "app.ingestion.pipeline.get_embeddings", lambda *a, **k: HashingEmbeddings()
+    )
+    started = []
+    import app.api.deps as deps
+
+    original = deps.start_auto_ingest
+
+    def spy(services, settings):
+        t = original(services, settings)
+        started.append(t)
+        return t
+
+    monkeypatch.setattr("app.main.start_auto_ingest", spy)
+    get_settings.cache_clear()
+    with TestClient(create_app()) as c:
+        assert started and started[0] is not None
+        started[0].join(timeout=30)
+        assert c.get("/sources").json()["count"] == 1
+
+    # Second start: index not empty -> nothing to do
+    started.clear()
+    with TestClient(create_app()):
+        assert started == [None]
+
+
+def test_sources_are_cached_and_refreshed_after_ingest(setup, tmp_path, monkeypatch):
+    calls = []
+    import app.ingestion.vectorstore as vs
+
+    real = vs.list_sources
+
+    def counting(store):
+        calls.append(1)
+        return real(store)
+
+    monkeypatch.setattr(vs, "list_sources", counting)
+    with setup() as c:
+        for _ in range(3):
+            c.get("/sources")
+            c.get("/health")
+        assert len(calls) == 1  # computed once, then served from cache
+
+        pdf = make_pdf(
+            tmp_path / "new.pdf",
+            ["Inhaled corticosteroids are maintenance therapy for persistent asthma in adults."],
+        )
+        c.post(
+            "/ingest/upload",
+            headers={"X-API-Key": ADMIN_KEY},
+            files={"file": ("new.pdf", pdf.read_bytes(), "application/pdf")},
+        )
+        assert c.get("/sources").json()["count"] == 3  # cache invalidated by ingest
+        assert len(calls) == 2

@@ -3,13 +3,19 @@ from fastapi import APIRouter, Depends
 from app import __version__
 from app.api.deps import Services, get_services
 from app.core.config import Settings, get_settings
-from app.ingestion.vectorstore import count, list_sources
+from app.ingestion.vectorstore import count
 from app.schemas.api import HealthResponse, IndexStats
 
 router = APIRouter(tags=["meta"])
 
 
-@router.get("/health", response_model=HealthResponse, summary="Liveness and readiness")
+@router.get("/health/live", summary="Liveness probe (cheap, no dependencies)")
+def live() -> dict[str, str]:
+    """For Docker / platform health checks: answers instantly without touching the index."""
+    return {"status": "alive"}
+
+
+@router.get("/health", response_model=HealthResponse, summary="Readiness and status details")
 def health(
     settings: Settings = Depends(get_settings),
     services: Services = Depends(get_services),
@@ -20,9 +26,7 @@ def health(
         issues.append("vector store unavailable")
     else:
         try:
-            index = IndexStats(
-                documents=len(list_sources(services.store)), chunks=count(services.store)
-            )
+            index = IndexStats(documents=len(services.list_sources()), chunks=count(services.store))
             if index.chunks == 0:
                 issues.append("index is empty: ingest documents first")
         except Exception:  # health must never crash

@@ -1,0 +1,42 @@
+# Full stack:  docker compose up --build    ->  http://localhost:8080
+#
+#   web (nginx :8080)  --/api/*-->  api (FastAPI :8000)  -->  Groq / OpenAI
+#                                     |
+#                          ./data/raw (PDFs, bind mount)
+#                          chroma-data (vector index, named volume)
+
+name: healthcare-navigator
+
+services:
+  api:
+    build:
+      context: ./backend
+    image: healthcare-navigator-api:latest
+    env_file:
+      - path: .env          # OPENAI_API_KEY, LLM_BASE_URL, LLM_MODEL, ADMIN_API_KEY, ...
+        required: false
+    environment:
+      ENVIRONMENT: staging          # keeps /docs on; use "production" to hide it
+      TRUST_PROXY_HEADERS: "true"   # real client IP from nginx, for rate limiting
+      AUTO_INGEST_ON_STARTUP: "true"
+      CORS_ORIGINS: http://localhost:8080
+    volumes:
+      - ./data/raw:/data/raw            # your PDFs (also where uploads are saved)
+      - chroma-data:/data/chroma        # vector index lives in a Docker volume
+    ports:
+      - "127.0.0.1:8000:8000"           # direct API access for /docs (localhost only)
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    image: healthcare-navigator-web:latest
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  chroma-data:

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
 from app.api import health, ingest, query, sources
-from app.api.deps import Services, build_services
+from app.api.deps import Services, build_services, start_auto_ingest
 from app.api.errors import register_error_handlers
 from app.api.middleware import register_middleware
 from app.api.ratelimit import RateLimiter, parse_rate
@@ -41,6 +41,8 @@ def create_app(services: Services | None = None) -> FastAPI:
         if getattr(app.state, "services", None) is None:
             logger.info("Loading embedding model, vector store and LLM...")
             app.state.services = build_services(settings)
+            if settings.auto_ingest_on_startup:
+                start_auto_ingest(app.state.services, settings)
             logger.info("Startup complete")
         yield
 

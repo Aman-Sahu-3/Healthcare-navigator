@@ -166,6 +166,30 @@ cd frontend && npm ci && npm run dev      # http://localhost:5173
 
 <!-- Add a screenshot: docs/screenshot.png -->
 
+## Docker (Phase 6)
+
+```bash
+docker compose up --build        # first build ~5-10 min (PyTorch + model download)
+# open http://localhost:8080      (API docs: http://localhost:8000/docs)
+```
+
+```
+browser ──► web (nginx :8080) ──/api/*──► api (FastAPI :8000) ──► Groq / OpenAI
+             static React build             embedding model baked into image
+                                            ./data/raw  (PDFs, bind mount)
+                                            chroma-data (vector index, named volume)
+```
+
+| Image | Highlights |
+|---|---|
+| `healthcare-navigator-api` | Multi-stage build, CPU-only PyTorch, embedding model downloaded at build time (offline start), non-root user, health check |
+| `healthcare-navigator-web` | Node build stage → nginx; `/api` reverse proxy (same origin, no CORS), SPA fallback, gzip, long-cache hashed assets, CSP and security headers |
+
+- Put PDFs in `data/raw/`; on first start the API indexes them in the background (`AUTO_INGEST_ON_STARTUP`).
+  Re-scan later with `docker compose exec api python -m app.ingestion` or `POST /api/ingest`.
+- Secrets come from `.env` at runtime and are never baked into images.
+- CI builds both images and smoke-tests the running stack on every push.
+
 ## Roadmap
 
 - [x] Phase 0 — Foundations (repo, config, logging, CI)
@@ -174,6 +198,6 @@ cd frontend && npm ci && npm run dev      # http://localhost:5173
 - [x] Phase 3 — Evaluation
 - [x] Phase 4 — REST API
 - [x] Phase 5 — React frontend
-- [ ] Phase 6 — Docker
+- [x] Phase 6 — Docker
 - [ ] Phase 7 — Deployment + CI/CD
 - [ ] Phase 8 — Hardening

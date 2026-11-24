@@ -1,4 +1,4 @@
-.PHONY: help install lint format test run check ingest sources search web web-install web-test
+.PHONY: help install lint format test run check ingest sources search web web-install web-test up down logs docker-ingest
 
 help:  ## Show commands
 	@grep -E '^[a-z]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
@@ -36,5 +36,17 @@ web:  ## Start the React dev server on :5173 (proxies /api to :8000)
 
 web-test:  ## Typecheck + test the frontend
 	cd frontend && npm run typecheck && npm test
+
+up:  ## Build and start the full stack with Docker -> http://localhost:8080
+	docker compose up --build -d
+
+down:  ## Stop the Docker stack (keeps the vector index volume)
+	docker compose down
+
+logs:  ## Follow Docker logs
+	docker compose logs -f
+
+docker-ingest:  ## Re-scan data/raw inside the running API container
+	docker compose exec api python -m app.ingestion
 
 check: lint test web-test  ## What CI runs

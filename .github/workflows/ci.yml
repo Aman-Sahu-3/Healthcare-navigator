@@ -50,3 +50,43 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  docker:
+    # Builds both images and smoke-tests the running stack end to end.
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: docker compose build
+      - name: Start stack (no LLM key -> API reports "degraded", which is expected)
+        run: docker compose up -d
+      - name: Wait for the API through nginx
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/api/health; then echo; exit 0; fi
+            sleep 5
+          done
+          echo "API never became reachable"; exit 1
+      - name: Smoke test
+        run: |
+          set -e
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          curl -fsS http://localhost:8080/some/client/route | grep -q '<div id="root">'
+          curl -fsS http://localhost:8080/api/health | grep -q '"version"'
+          curl -fsS http://localhost:8080/api/health/live | grep -q alive
+          curl -fsS http://localhost:8080/api/sources | grep -q '"count"'
+          # /query without an LLM key must fail cleanly with the standard error format
+          code=$(curl -s -o out.json -w "%{http_code}" -X POST http://localhost:8080/api/query \
+                 -H "Content-Type: application/json" -d '{"question":"test question"}')
+          test "$code" = "503" && grep -q llm_not_configured out.json
+          curl -sI http://localhost:8080/ | grep -qi "x-frame-options: DENY"
+          docker compose ps
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color | tail -200
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+

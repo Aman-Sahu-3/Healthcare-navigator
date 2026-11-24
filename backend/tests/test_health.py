@@ -27,3 +27,10 @@ def test_unknown_route_uses_error_format(client):
     assert r.status_code == 404
     assert r.json()["error"]["code"] == "not_found"
     assert r.json()["request_id"]
+
+
+def test_liveness_is_cheap(client):
+    services = client.app.state.services
+    services.store = None  # even with no index, liveness must answer
+    r = client.get("/health/live")
+    assert r.status_code == 200 and r.json() == {"status": "alive"}

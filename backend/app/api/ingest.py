@@ -40,6 +40,7 @@ class _IngestGuard:
     """Only one ingestion at a time — concurrent writes to Chroma waste work."""
 
     def __init__(self, services: Services):
+        self.services = services
         self.lock = services.ingest_lock
 
     def __enter__(self):
@@ -47,6 +48,7 @@ class _IngestGuard:
             raise APIError(409, "ingest_in_progress", "Another ingestion is already running")
 
     def __exit__(self, *exc):
+        self.services.invalidate_sources()
         self.lock.release()
 
 

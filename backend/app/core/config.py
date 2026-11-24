@@ -67,6 +67,8 @@ class Settings(BaseSettings):
     rate_limit: str = Field(default="20/minute", pattern=r"^\d+/(second|minute|hour|day)$")
     trust_proxy_headers: bool = False  # use X-Forwarded-For for client IP (behind a proxy)
     max_upload_mb: int = Field(default=25, ge=1, le=200)
+    # Index data/raw in the background at startup when the index is empty (fresh deploys).
+    auto_ingest_on_startup: bool = False
 
     @field_validator("cors_origins", mode="before")
     @classmethod
