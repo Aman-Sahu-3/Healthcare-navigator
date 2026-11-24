@@ -24,7 +24,7 @@ React UI ─► FastAPI /query ─► LCEL RAG chain (top-k cosine retrieval ─
 | `backend/app/api` | FastAPI routes, errors, rate limiting, request IDs |
 | `backend/app/schemas` | Pydantic request/response models |
 | `backend/tests` | pytest suite |
-| `frontend/` | React app *(Phase 5)* |
+| `frontend/` | React app (Vite, TypeScript, Tailwind, TanStack Query) |
 | `data/raw/` | Source PDFs (git-ignored) |
 | `eval/` | Golden Q&A set (`golden.jsonl`) and evaluation reports |
 | `backend/app/eval` | Evaluation harness: question generation, metrics, LLM judge, reports |
@@ -147,6 +147,25 @@ Every error has the same shape — `{"error": {"code", "message", "details?"}, "
 with LLM provider failures mapped to clear codes (`llm_rate_limited` 503, `llm_auth_error` 502,
 `llm_timeout` 504). Models load once at startup; question text is never logged.
 
+## Frontend (Phase 5)
+
+```bash
+# terminal 1 — API
+cd backend && uvicorn app.main:app --reload --reload-dir app --port 8000
+# terminal 2 — UI
+cd frontend && npm ci && npm run dev      # http://localhost:5173
+```
+
+- Question box with example prompts, passage-count option and keyboard submit
+- Answer with inline numbered markers; clicking one jumps to and highlights its source card
+- Citation cards: document title, file, **page number**, passage snippet, similarity bar
+- Confidence badge — **green HIGH / amber MEDIUM / red LOW** — that explains its reasoning
+- Distinct "no supported answer" state, friendly error messages (rate limits, server down)
+- Recent-question history (stored only in the browser), indexed-document list, live server status
+- Persistent "not medical advice" banner; answers rendered without injecting model HTML
+
+<!-- Add a screenshot: docs/screenshot.png -->
+
 ## Roadmap
 
 - [x] Phase 0 — Foundations (repo, config, logging, CI)
@@ -154,7 +173,7 @@ with LLM provider failures mapped to clear codes (`llm_rate_limited` 503, `llm_a
 - [x] Phase 2 — RAG chain + confidence scoring
 - [x] Phase 3 — Evaluation
 - [x] Phase 4 — REST API
-- [ ] Phase 5 — React frontend
+- [x] Phase 5 — React frontend
 - [ ] Phase 6 — Docker
 - [ ] Phase 7 — Deployment + CI/CD
 - [ ] Phase 8 — Hardening
