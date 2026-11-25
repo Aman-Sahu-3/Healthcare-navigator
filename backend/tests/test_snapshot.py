@@ -141,6 +141,10 @@ def test_startup_restores_from_index_url(built_index, tmp_path, monkeypatch, pat
     with TestClient(create_app()) as c:
         body = c.get("/health").json()
     assert body["index"] == {"documents": 2, "chunks": n}
+    assert body["index_source"] == "restored"
+    # Next start finds the index on disk and doesn't download again
+    with TestClient(create_app()) as c:
+        assert c.get("/health").json()["index_source"] == "local"
 
 
 def test_startup_survives_bad_index_url(tmp_path, monkeypatch, patched_embeddings):
@@ -149,7 +153,29 @@ def test_startup_survives_bad_index_url(tmp_path, monkeypatch, patched_embedding
     get_settings.cache_clear()
     with TestClient(create_app()) as c:
         assert c.get("/health/live").status_code == 200
-        assert any("empty" in i for i in c.get("/health").json()["issues"])
+        body = c.get("/health").json()
+    assert body["index_source"].startswith("failed:")
+    assert any("index restore from INDEX_URL failed" in i for i in body["issues"])
+
+
+def test_corrupt_snapshot_reported_not_crash(tmp_path, monkeypatch, patched_embeddings):
+    bad = tmp_path / "corrupt.tar.gz"
+    bad.write_bytes(b"this is not a tarball")
+    monkeypatch.setenv("CHROMA_DIR", str(tmp_path / "server_chroma"))
+    monkeypatch.setenv("INDEX_URL", bad.as_uri())
+    get_settings.cache_clear()
+    with TestClient(create_app()) as c:
+        body = c.get("/health").json()
+    assert body["index_source"].startswith("failed: ReadError")
+
+
+def test_no_index_url_reported(tmp_path, monkeypatch, patched_embeddings):
+    monkeypatch.setenv("CHROMA_DIR", str(tmp_path / "server_chroma"))
+    get_settings.cache_clear()
+    with TestClient(create_app()) as c:
+        body = c.get("/health").json()
+    assert body["index_source"] == "not configured"
+    assert "set INDEX_URL" in " ".join(body["issues"])
 
 
 def test_docs_toggle(monkeypatch):

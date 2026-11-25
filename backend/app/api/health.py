@@ -28,7 +28,13 @@ def health(
         try:
             index = IndexStats(documents=len(services.list_sources()), chunks=count(services.store))
             if index.chunks == 0:
-                issues.append("index is empty: ingest documents first")
+                status = services.index_status or ""
+                if status.startswith("failed"):
+                    issues.append(f"index restore from INDEX_URL {status}")
+                elif status == "not configured":
+                    issues.append("index is empty: ingest documents or set INDEX_URL")
+                else:
+                    issues.append("index is empty: ingest documents first")
         except Exception:  # health must never crash
             issues.append("vector store not readable")
     if services.rag is None:
@@ -41,5 +47,6 @@ def health(
         llm_model=settings.llm_model,
         llm_configured=services.rag is not None,
         index=index,
+        index_source=services.index_status,
         issues=issues,
     )

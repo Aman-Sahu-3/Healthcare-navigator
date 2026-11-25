@@ -40,6 +40,9 @@ class HealthResponse(BaseModel):
     llm_model: str
     llm_configured: bool
     index: IndexStats | None
+    index_source: str | None = Field(
+        default=None, description='"local", "restored", "not configured" or "failed: ..."'
+    )
     issues: list[str] = Field(default_factory=list)
 
 

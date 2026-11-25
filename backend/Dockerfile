@@ -66,5 +66,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
 
 # One worker: each worker holds its own copy of the model and index in memory.
 # Shell form so $PORT expands; exec so uvicorn receives stop signals directly.
+# --no-access-log: our middleware already logs each request (as JSON, with request ID).
 # hadolint ignore=DL3025
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers 1
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" --workers 1 --no-access-log

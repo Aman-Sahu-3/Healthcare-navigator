@@ -12,6 +12,8 @@ from fastapi import FastAPI, Request
 logger = logging.getLogger("app.access")
 
 _VALID_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+# Polled every few seconds by Docker / the hosting platform: not worth a log line.
+_QUIET_PATHS = frozenset({"/health/live"})
 
 
 def register_middleware(app: FastAPI) -> None:
@@ -24,6 +26,8 @@ def register_middleware(app: FastAPI) -> None:
         response = await call_next(request)
         latency_ms = int((time.perf_counter() - start) * 1000)
         response.headers["X-Request-ID"] = request_id
+        if request.url.path in _QUIET_PATHS and response.status_code < 400:
+            return response
         logger.info(
             "%s %s -> %s (%d ms)",
             request.method,

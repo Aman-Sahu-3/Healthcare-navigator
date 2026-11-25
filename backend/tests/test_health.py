@@ -34,3 +34,24 @@ def test_liveness_is_cheap(client):
     services.store = None  # even with no index, liveness must answer
     r = client.get("/health/live")
     assert r.status_code == 200 and r.json() == {"status": "alive"}
+
+
+def test_liveness_not_logged_but_other_requests_are(client):
+    import logging
+
+    records: list[logging.LogRecord] = []
+
+    class Capture(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    access = logging.getLogger("app.access")
+    handler = Capture()
+    access.addHandler(handler)
+    try:
+        client.get("/health/live")
+        assert not [r for r in records if "/health/live" in r.getMessage()]
+        client.get("/health")
+        assert [r for r in records if "GET /health ->" in r.getMessage()]
+    finally:
+        access.removeHandler(handler)

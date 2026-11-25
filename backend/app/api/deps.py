@@ -26,6 +26,7 @@ class Services:
     store: Chroma | None
     rag: RAGService | None
     llm_error: str | None = None
+    index_status: str | None = None  # result of the startup INDEX_URL restore
     ingest_lock: threading.Lock = field(default_factory=threading.Lock)
     # Listing documents reads every chunk's metadata, which is slow on a large index.
     # Cache it; ingestion invalidates it, and a TTL covers out-of-band CLI ingests.
@@ -50,12 +51,18 @@ class Services:
             self._sources = None
 
 
-def maybe_restore_index(settings: Settings) -> bool:
-    """Download the prebuilt index from INDEX_URL if CHROMA_DIR has no index yet."""
-    from app.ingestion.snapshot import SnapshotError, has_index, restore_index
+def maybe_restore_index(settings: Settings) -> str:
+    """Download the prebuilt index from INDEX_URL if CHROMA_DIR has no index yet.
 
-    if not settings.index_url or has_index(settings.chroma_dir):
-        return False
+    Returns a short status shown by /health: "local", "restored", "not configured",
+    or "failed: <reason>".
+    """
+    from app.ingestion.snapshot import has_index, restore_index
+
+    if has_index(settings.chroma_dir):
+        return "local"
+    if not settings.index_url:
+        return "not configured"
     logger.info("No local index; restoring snapshot from INDEX_URL")
     try:
         restore_index(
@@ -64,11 +71,10 @@ def maybe_restore_index(settings: Settings) -> bool:
             expected_sha256=settings.index_sha256,
             expected_model=settings.embedding_model,
         )
-        return True
-    except (SnapshotError, OSError) as exc:
-        # Start anyway: /health will report the empty index instead of crash-looping.
+        return "restored"
+    except Exception as exc:  # any failure: start anyway and report it on /health
         logger.error("Index restore failed: %s", exc)
-        return False
+        return f"failed: {type(exc).__name__}: {exc}"[:300]
 
 
 def build_services(settings: Settings) -> Services:
@@ -76,7 +82,7 @@ def build_services(settings: Settings) -> Services:
     from app.ingestion.pipeline import build_store
     from app.rag.llm import LLMNotConfiguredError, get_llm
 
-    maybe_restore_index(settings)
+    index_status = maybe_restore_index(settings)
     store = build_store(settings)
     try:
         rag = RAGService(store, get_llm(settings), settings)
@@ -84,7 +90,7 @@ def build_services(settings: Settings) -> Services:
     except LLMNotConfiguredError as exc:
         logger.warning("LLM not configured: %s", exc)
         rag, llm_error = None, str(exc)
-    return Services(store=store, rag=rag, llm_error=llm_error)
+    return Services(store=store, rag=rag, llm_error=llm_error, index_status=index_status)
 
 
 def start_auto_ingest(services: Services, settings: Settings) -> threading.Thread | None:
