@@ -50,11 +50,33 @@ class Services:
             self._sources = None
 
 
+def maybe_restore_index(settings: Settings) -> bool:
+    """Download the prebuilt index from INDEX_URL if CHROMA_DIR has no index yet."""
+    from app.ingestion.snapshot import SnapshotError, has_index, restore_index
+
+    if not settings.index_url or has_index(settings.chroma_dir):
+        return False
+    logger.info("No local index; restoring snapshot from INDEX_URL")
+    try:
+        restore_index(
+            settings.index_url,
+            settings.chroma_dir,
+            expected_sha256=settings.index_sha256,
+            expected_model=settings.embedding_model,
+        )
+        return True
+    except (SnapshotError, OSError) as exc:
+        # Start anyway: /health will report the empty index instead of crash-looping.
+        logger.error("Index restore failed: %s", exc)
+        return False
+
+
 def build_services(settings: Settings) -> Services:
     """Load the embedding model + vector store once, and the LLM if configured."""
     from app.ingestion.pipeline import build_store
     from app.rag.llm import LLMNotConfiguredError, get_llm
 
+    maybe_restore_index(settings)
     store = build_store(settings)
     try:
         rag = RAGService(store, get_llm(settings), settings)

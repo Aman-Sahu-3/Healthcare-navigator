@@ -46,12 +46,15 @@ def create_app(services: Services | None = None) -> FastAPI:
             logger.info("Startup complete")
         yield
 
+    docs_on = (
+        settings.docs_enabled if settings.docs_enabled is not None else not settings.is_production
+    )
     app = FastAPI(
         title=settings.app_name,
         version=__version__,
         description=DESCRIPTION,
         lifespan=lifespan,
-        docs_url=None if settings.is_production else "/docs",
+        docs_url="/docs" if docs_on else None,
         redoc_url=None,
     )
     app.state.services = services
@@ -60,6 +63,7 @@ def create_app(services: Services | None = None) -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=settings.cors_origin_regex,
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type", "X-API-Key", "X-Request-ID"],
         expose_headers=["X-Request-ID", "Retry-After"],

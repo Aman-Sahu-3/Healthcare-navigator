@@ -1,0 +1,46 @@
+# Render Blueprint — API on the free plan.
+# Render dashboard -> New -> Blueprint -> pick this repo. Secrets marked `sync: false`
+# are asked for once in the dashboard and never stored in git.
+services:
+  - type: web
+    name: healthcare-navigator-api
+    runtime: docker
+    plan: free                    # 0.1 CPU, 512 MB; sleeps after 15 min idle
+    region: singapore             # closest Render region to India
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health/live
+    autoDeployTrigger: checksPass # deploy only after GitHub Actions CI is green
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+    envVars:
+      # --- LLM (Groq free tier; any OpenAI-compatible provider works) ---
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: openai/gpt-oss-20b
+      # --- Prebuilt index (no persistent disk on the free plan) ---
+      - key: INDEX_URL
+        sync: false
+      - key: INDEX_SHA256
+        sync: false
+      # --- Frontend origins (your Vercel URL) ---
+      - key: CORS_ORIGINS
+        sync: false
+      - key: CORS_ORIGIN_REGEX
+        sync: false
+      # --- Runtime tuning for 0.1 CPU / 512 MB ---
+      - key: EMBEDDING_THREADS
+        value: "1"
+      - key: RATE_LIMIT
+        value: 10/minute
+      - key: TRUST_PROXY_HEADERS
+        value: "true"
+      - key: DOCS_ENABLED
+        value: "true"             # keep /docs visible for the portfolio demo
+      # ADMIN_API_KEY is intentionally not set: uploads would be lost when the free
+      # instance sleeps, so ingestion endpoints stay disabled in this deployment.

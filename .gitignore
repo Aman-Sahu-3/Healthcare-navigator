@@ -30,3 +30,7 @@ frontend/dist/
 
 # Evaluation run outputs (reports are worth committing; raw JSON is large)
 eval/results/*.json
+
+# Index snapshots (upload to GitHub Releases, don't commit)
+data/export/
+*.tar.gz

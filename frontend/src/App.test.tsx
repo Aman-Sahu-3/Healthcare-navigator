@@ -90,6 +90,24 @@ function renderApp() {
 }
 
 describe("App", () => {
+  it("tells the user when a sleeping server is waking up", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(() => new Promise<Response>(() => {})), // server not answering yet
+      );
+      renderApp();
+      expect(screen.getByRole("status")).toHaveTextContent("Checking server");
+      await vi.advanceTimersByTimeAsync(4500);
+      await waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(/Waking up the server/),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows server status and the disclaimer", async () => {
     mockApi([]);
     renderApp();

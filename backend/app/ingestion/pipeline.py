@@ -66,7 +66,10 @@ def discover_pdfs(path: Path) -> list[Path]:
 
 def build_store(settings: Settings, embeddings: Embeddings | None = None) -> Chroma:
     emb = embeddings or get_embeddings(
-        settings.embedding_model, settings.embedding_device, settings.embedding_batch_size
+        settings.embedding_model,
+        str(settings.embedding_cache_dir),
+        settings.embedding_batch_size,
+        settings.embedding_threads,
     )
     return get_vectorstore(emb, settings.chroma_dir, settings.chroma_collection)
 

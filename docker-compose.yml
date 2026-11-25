@@ -19,10 +19,12 @@ services:
       ENVIRONMENT: staging          # keeps /docs on; use "production" to hide it
       TRUST_PROXY_HEADERS: "true"   # real client IP from nginx, for rate limiting
       AUTO_INGEST_ON_STARTUP: "true"
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}   # from .env or the shell (CI sets one)
       CORS_ORIGINS: http://localhost:8080
     volumes:
       - ./data/raw:/data/raw            # your PDFs (also where uploads are saved)
       - chroma-data:/data/chroma        # vector index lives in a Docker volume
+      - ./data/export:/data/export      # index snapshots for deployment (--export)
     ports:
       - "127.0.0.1:8000:8000"           # direct API access for /docs (localhost only)
     restart: unless-stopped

@@ -35,3 +35,19 @@ def test_api_key_is_secret(monkeypatch):
     s = Settings()
     assert "sk-test-123" not in repr(s)
     assert s.openai_api_key.get_secret_value() == "sk-test-123"
+
+
+def test_empty_env_values_mean_unset(monkeypatch):
+    for key in (
+        "EMBEDDING_THREADS",
+        "DOCS_ENABLED",
+        "INDEX_URL",
+        "CORS_ORIGIN_REGEX",
+        "LLM_BASE_URL",
+        "ADMIN_API_KEY",
+    ):
+        monkeypatch.setenv(key, "")
+    s = Settings()
+    assert s.embedding_threads is None and s.docs_enabled is None
+    assert s.index_url is None and s.cors_origin_regex is None
+    assert s.llm_base_url is None and s.admin_api_key is None

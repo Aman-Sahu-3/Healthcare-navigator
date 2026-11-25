@@ -20,6 +20,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        env_ignore_empty=True,  # `KEY=` in .env means "not set", not an empty string
     )
 
     # --- App ---
@@ -42,8 +43,10 @@ class Settings(BaseSettings):
 
     # --- Embeddings & vector store ---
     embedding_model: str = "BAAI/bge-small-en-v1.5"
-    embedding_device: Literal["cpu", "cuda", "mps"] = "cpu"
     embedding_batch_size: int = Field(default=32, ge=1, le=512)
+    embedding_threads: int | None = Field(default=None, ge=1, le=64)  # None = all cores
+    # Where FastEmbed keeps the downloaded ONNX model (default: ~/.cache/fastembed)
+    embedding_cache_dir: Path = Path.home() / ".cache" / "fastembed"
     chroma_dir: Path = PROJECT_ROOT / "data" / "chroma"
     chroma_collection: str = "clinical_docs"
 
@@ -69,6 +72,13 @@ class Settings(BaseSettings):
     max_upload_mb: int = Field(default=25, ge=1, le=200)
     # Index data/raw in the background at startup when the index is empty (fresh deploys).
     auto_ingest_on_startup: bool = False
+    # Download a prebuilt index at startup when CHROMA_DIR is empty (hosts without a disk).
+    index_url: str | None = None
+    index_sha256: str | None = None
+    # API docs at /docs: on by default except in production (set true to show them anyway).
+    docs_enabled: bool | None = None
+    # Extra allowed origins by regex, e.g. Vercel previews: https://my-app.*\.vercel\.app
+    cors_origin_regex: str | None = None
 
     @field_validator("cors_origins", mode="before")
     @classmethod

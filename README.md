@@ -8,7 +8,7 @@ with page-level source citations and a HIGH / MEDIUM / LOW confidence score.
 ## Architecture (target)
 
 ```
-PDFs ─► Ingestion (PyMuPDF → recursive chunking → HF embeddings) ─► ChromaDB
+PDFs ─► Ingestion (PyMuPDF → recursive chunking → bge-small ONNX embeddings) ─► ChromaDB
                                                                       │
 React UI ─► FastAPI /query ─► LCEL RAG chain (top-k cosine retrieval ─┘
                                → grounded prompt → LLM → citations + confidence)
@@ -57,7 +57,7 @@ python -m app.ingestion --reset               # wipe collection, then ingest
 | Cleaning | De-hyphenation, drop page-number lines, whitespace normalization | Cleaner chunks embed better |
 | Chunking | Recursive splitter, 1000 chars / 150 overlap, per page | Respects paragraph → sentence boundaries; every chunk maps to one page |
 | IDs | `<file-hash>:p<page>:c<n>` | Deterministic → re-ingestion never duplicates |
-| Embeddings | `BAAI/bge-small-en-v1.5`, normalized | Strong retrieval for its size, runs on CPU |
+| Embeddings | `BAAI/bge-small-en-v1.5` via FastEmbed (ONNX), normalized | Strong retrieval for its size; no PyTorch, so the API fits in 512 MB |
 | Vector DB | ChromaDB, persistent, cosine space | Similarity = 1 − cosine distance, range 0–1 |
 
 ## RAG chain (Phase 2)
@@ -169,7 +169,7 @@ cd frontend && npm ci && npm run dev      # http://localhost:5173
 ## Docker (Phase 6)
 
 ```bash
-docker compose up --build        # first build ~5-10 min (PyTorch + model download)
+docker compose up --build        # first build a few minutes (dependencies + model download)
 # open http://localhost:8080      (API docs: http://localhost:8000/docs)
 ```
 
@@ -182,13 +182,32 @@ browser ──► web (nginx :8080) ──/api/*──► api (FastAPI :8000) �
 
 | Image | Highlights |
 |---|---|
-| `healthcare-navigator-api` | Multi-stage build, CPU-only PyTorch, embedding model downloaded at build time (offline start), non-root user, health check |
+| `healthcare-navigator-api` | Multi-stage build, ONNX embeddings (no PyTorch), model baked in at build time (offline start), non-root user, liveness check |
 | `healthcare-navigator-web` | Node build stage → nginx; `/api` reverse proxy (same origin, no CORS), SPA fallback, gzip, long-cache hashed assets, CSP and security headers |
 
 - Put PDFs in `data/raw/`; on first start the API indexes them in the background (`AUTO_INGEST_ON_STARTUP`).
   Re-scan later with `docker compose exec api python -m app.ingestion` or `POST /api/ingest`.
 - Secrets come from `.env` at runtime and are never baked into images.
 - CI builds both images and smoke-tests the running stack on every push.
+
+## Deployment (Phase 7)
+
+**Live:** website on Vercel, API on Render's free tier, LLM on Groq: $0/month.
+Step-by-step guide: [DEPLOY.md](DEPLOY.md).
+
+```
+Vercel (React) ──HTTPS──► Render (FastAPI in Docker, 512 MB) ──► Groq
+                             └─ restores a prebuilt index from a GitHub Release at startup
+```
+
+- **Fits a 512 MB free instance:** PyTorch replaced by ONNX Runtime (FastEmbed); app libraries load in ~200 MB.
+- **No persistent disk needed:** the index is exported once (`python -m app.ingestion --export`)
+  and restored on cold start from `INDEX_URL`, with sha256 and embedding-model checks.
+- **CI/CD:** GitHub Actions (backend, frontend, Docker end-to-end incl. real embeddings) →
+  Render deploys only after checks pass; Vercel deploys every push with PR previews.
+- **Cold starts handled in the UI:** "Waking up the server…" instead of an error.
+
+<!-- Live demo: https://<project>.vercel.app · API docs: https://<service>.onrender.com/docs -->
 
 ## Roadmap
 
@@ -199,5 +218,5 @@ browser ──► web (nginx :8080) ──/api/*──► api (FastAPI :8000) �
 - [x] Phase 4 — REST API
 - [x] Phase 5 — React frontend
 - [x] Phase 6 — Docker
-- [ ] Phase 7 — Deployment + CI/CD
+- [x] Phase 7 — Deployment + CI/CD
 - [ ] Phase 8 — Hardening

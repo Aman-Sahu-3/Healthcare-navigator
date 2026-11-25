@@ -64,9 +64,10 @@ async function request<T>(path: string, init?: RequestInit, timeoutMs = 60_000):
 }
 
 export const api = {
+  // 90 s: on free hosting the first request may include a ~1 min server wake-up.
   query: (body: QueryRequest) =>
-    request<QueryResponse>("/query", { method: "POST", body: JSON.stringify(body) }),
-  health: () => request<HealthResponse>("/health", undefined, 10_000),
+    request<QueryResponse>("/query", { method: "POST", body: JSON.stringify(body) }, 90_000),
+  health: () => request<HealthResponse>("/health", undefined, 30_000),
   sources: () => request<SourcesResponse>("/sources", undefined, 15_000),
 };
 

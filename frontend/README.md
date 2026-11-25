@@ -10,6 +10,7 @@ npm run build     # typecheck + production build -> dist/
 ```
 
 Set `VITE_API_URL` (see `.env.example`) when the API runs on another origin in production.
+Deployed on Vercel (`vercel.json`: SPA rewrites, security headers, long-cache assets).
 
 | Component | Role |
 |---|---|
