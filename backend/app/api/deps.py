@@ -11,7 +11,9 @@ from dataclasses import dataclass, field
 from fastapi import Depends, Header, Request
 from langchain_chroma import Chroma
 
+from app.api.cache import AnswerCache
 from app.api.errors import APIError
+from app.api.stats import Stats
 from app.core.config import Settings, get_settings
 from app.rag.chain import RAGService
 
@@ -28,6 +30,8 @@ class Services:
     llm_error: str | None = None
     index_status: str | None = None  # result of the startup INDEX_URL restore
     ingest_lock: threading.Lock = field(default_factory=threading.Lock)
+    answer_cache: AnswerCache = field(default_factory=AnswerCache)
+    stats: Stats = field(default_factory=Stats)
     # Listing documents reads every chunk's metadata, which is slow on a large index.
     # Cache it; ingestion invalidates it, and a TTL covers out-of-band CLI ingests.
     _sources: list[dict] | None = field(default=None, repr=False)
@@ -47,8 +51,10 @@ class Services:
             return self._sources
 
     def invalidate_sources(self) -> None:
+        """Called after any ingestion: the index changed, so cached views are stale."""
         with self._sources_lock:
             self._sources = None
+        self.answer_cache.clear()
 
 
 def maybe_restore_index(settings: Settings) -> str:
@@ -90,7 +96,13 @@ def build_services(settings: Settings) -> Services:
     except LLMNotConfiguredError as exc:
         logger.warning("LLM not configured: %s", exc)
         rag, llm_error = None, str(exc)
-    return Services(store=store, rag=rag, llm_error=llm_error, index_status=index_status)
+    return Services(
+        store=store,
+        rag=rag,
+        llm_error=llm_error,
+        index_status=index_status,
+        answer_cache=AnswerCache(settings.answer_cache_size, settings.answer_cache_ttl_s),
+    )
 
 
 def start_auto_ingest(services: Services, settings: Settings) -> threading.Thread | None:

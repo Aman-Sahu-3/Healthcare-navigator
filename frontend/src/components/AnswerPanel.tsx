@@ -146,6 +146,12 @@ function Meta({ result }: { result: QueryResponse }) {
     <p className="mt-5 border-t border-slate-100 pt-3 text-xs text-slate-400">
       {result.retrieved_chunks} passages searched · {result.model} ·{" "}
       {(result.latency_ms / 1000).toFixed(1)} s
+      {result.cached && (
+        <span title="Answered from the server's cache: same question asked recently">
+          {" "}
+          · ⚡ cached
+        </span>
+      )}
     </p>
   );
 }

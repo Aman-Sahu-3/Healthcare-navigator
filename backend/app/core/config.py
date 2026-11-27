@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     rate_limit: str = Field(default="20/minute", pattern=r"^\d+/(second|minute|hour|day)$")
     trust_proxy_headers: bool = False  # use X-Forwarded-For for client IP (behind a proxy)
     max_upload_mb: int = Field(default=25, ge=1, le=200)
+    # Answer cache: repeated questions skip retrieval + the LLM. 0 entries disables it.
+    answer_cache_size: int = Field(default=256, ge=0, le=10_000)
+    answer_cache_ttl_s: int = Field(default=3600, ge=0)
     # Index data/raw in the background at startup when the index is empty (fresh deploys).
     auto_ingest_on_startup: bool = False
     # Download a prebuilt index at startup when CHROMA_DIR is empty (hosts without a disk).

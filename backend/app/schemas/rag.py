@@ -31,3 +31,4 @@ class RAGAnswer(BaseModel):
     retrieved_chunks: int
     model: str
     latency_ms: int
+    cached: bool = False

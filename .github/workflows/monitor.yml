@@ -1,0 +1,72 @@
+name: Production monitor
+
+# Daily end-to-end check of the live deployment. A failed run makes GitHub email you.
+# Setup: repo Settings -> Secrets and variables -> Actions -> Variables:
+#   PROD_API_URL  e.g. https://healthcare-navigator-api.onrender.com
+#   PROD_WEB_URL  e.g. https://healthcare-navigator.vercel.app
+on:
+  schedule:
+    - cron: "17 3 * * *"   # 03:17 UTC = 08:47 IST daily
+  workflow_dispatch:        # "Run workflow" button for manual checks
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API: ${{ vars.PROD_API_URL }}
+      WEB: ${{ vars.PROD_WEB_URL }}
+    steps:
+      - name: Skip if not configured
+        if: env.API == '' || env.WEB == ''
+        run: echo "::notice::Set PROD_API_URL and PROD_WEB_URL repository variables to enable monitoring."
+
+      - name: Wake the API (free tier sleeps after 15 min idle)
+        if: env.API != '' && env.WEB != ''
+        run: |
+          for i in $(seq 1 24); do
+            if curl -fsS --max-time 20 "$API/health/live"; then echo; exit 0; fi
+            echo "waiting for cold start ($i)..."; sleep 10
+          done
+          echo "::error::API did not wake up within 4 minutes"; exit 1
+
+      - name: API is healthy with a loaded index
+        if: env.API != '' && env.WEB != ''
+        run: |
+          curl -fsS --max-time 30 "$API/health" | tee health.json; echo
+          python3 - <<'PY'
+          import json, sys
+          h = json.load(open("health.json"))
+          problems = []
+          if h["status"] != "ok": problems.append(f"status={h['status']} issues={h['issues']}")
+          if not (h.get("index") or {}).get("chunks"): problems.append("index is empty")
+          if not h["llm_configured"]: problems.append("LLM not configured")
+          if problems:
+              print("::error::" + "; ".join(problems)); sys.exit(1)
+          print(f"OK: {h['index']['documents']} documents, {h['index']['chunks']} chunks")
+          PY
+
+      - name: A real question gets a cited answer
+        if: env.API != '' && env.WEB != ''
+        run: |
+          curl -fsS --max-time 90 -X POST "$API/query" -H "Content-Type: application/json" \
+               -d '{"question": "What is the first-line treatment for hypertension in adults?"}' \
+               | tee answer.json; echo
+          python3 - <<'PY'
+          import json, sys
+          a = json.load(open("answer.json"))
+          if a["insufficient_evidence"] or not a["citations"]:
+              print("::error::No cited answer for a question the index should cover"); sys.exit(1)
+          print(f"OK: {len(a['citations'])} citations, confidence {a['confidence']['level']}, "
+                f"{a['latency_ms']} ms, cached={a.get('cached')}")
+          PY
+
+      - name: Website is up
+        if: env.API != '' && env.WEB != ''
+        run: |
+          curl -fsS --max-time 30 "$WEB/" | grep -q '<div id="root">'
+          curl -fsSI --max-time 30 "$WEB/" | grep -qi "content-security-policy"
+          echo "OK: website serves the app with security headers"

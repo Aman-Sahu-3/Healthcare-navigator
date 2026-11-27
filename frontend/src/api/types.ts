@@ -26,6 +26,8 @@ export interface QueryResponse {
   retrieved_chunks: number;
   model: string;
   latency_ms: number;
+  /** true when the server answered from its cache (no new LLM call) */
+  cached?: boolean;
 }
 
 export interface QueryRequest {

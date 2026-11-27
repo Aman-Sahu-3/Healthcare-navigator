@@ -155,6 +155,14 @@ describe("App", () => {
     expect(document.getElementById("citation-1")).not.toHaveAttribute("data-active");
   });
 
+  it("marks answers served from the server cache", async () => {
+    mockApi([{ status: 200, body: { ...ANSWER, cached: true } }]);
+    const user = userEvent.setup();
+    renderApp();
+    await user.type(screen.getByLabelText("Clinical question"), "hypertension{Enter}");
+    expect(await screen.findByText(/⚡ cached/)).toBeInTheDocument();
+  });
+
   it("explains confidence on click", async () => {
     mockApi([{ status: 200, body: ANSWER }]);
     const user = userEvent.setup();

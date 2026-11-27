@@ -50,3 +50,8 @@ def health(
         index_source=services.index_status,
         issues=issues,
     )
+
+
+@router.get("/stats", summary="Usage statistics (aggregate, no question text)")
+def stats(services: Services = Depends(get_services)) -> dict:
+    return services.stats.snapshot(cache_size=len(services.answer_cache))

@@ -209,6 +209,18 @@ Vercel (React) ──HTTPS──► Render (FastAPI in Docker, 512 MB) ──►
 
 <!-- Live demo: https://<project>.vercel.app · API docs: https://<service>.onrender.com/docs -->
 
+## Hardening (Phase 8)
+
+| Area | What | Where |
+|---|---|---|
+| Performance / cost | LRU + TTL **answer cache**: repeated questions skip retrieval and the LLM; cleared on every ingest | `app/api/cache.py` |
+| Observability | `GET /stats`: queries, cache hit rate, confidence mix, error counts, p50/p95 latency (no question text) | `app/api/stats.py` |
+| Observability | JSON logs with request IDs; health-check polling not logged; optional LangSmith tracing via env vars | `core/logging.py`, `.env.example` |
+| Safety | Prompt-injection guard: passages wrapped as untrusted reference material; citations always rebuilt from metadata | `app/rag/prompt.py` |
+| Reliability | Daily **production monitor** (wake → health → real cited answer → website); a failure emails you | `.github/workflows/monitor.yml` |
+| Supply chain | **Dependabot** weekly PRs for pip, npm, Docker and Actions, gated by CI | `.github/dependabot.yml` |
+| Already in place | Rate limiting, input validation, uniform errors, non-root containers, CSP and security headers, sha256-verified index snapshots | Phases 4–7 |
+
 ## Roadmap
 
 - [x] Phase 0 — Foundations (repo, config, logging, CI)
@@ -219,4 +231,4 @@ Vercel (React) ──HTTPS──► Render (FastAPI in Docker, 512 MB) ──►
 - [x] Phase 5 — React frontend
 - [x] Phase 6 — Docker
 - [x] Phase 7 — Deployment + CI/CD
-- [ ] Phase 8 — Hardening
+- [x] Phase 8 — Hardening
