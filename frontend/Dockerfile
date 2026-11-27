@@ -5,7 +5,7 @@
 #   runtime:     nginx serves them and proxies /api/* to the API container
 
 # ---------- build ----------
-FROM node:22-slim AS build
+FROM node:25-slim AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
